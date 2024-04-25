@@ -1,31 +1,26 @@
 import express, { Express, Request, Response } from "express";
-import dotenv from "dotenv";
-import jwt from "jsonwebtoken";
-
-dotenv.config();
+import { routes } from './routes';
 
 const app: Express = express();
 const port = process.env.PORT || 3000;
 
-app.get("/", (req: Request, res: Response) => {
-  res.send("Express + TypeScript Server");
+app.use('/', routes);
+app.get("/healthcheck", (req: Request, res: Response) => {
+  res.send("healthcheck");
 });
 
-app.post("/user/generateToken", (req, res) => {
-  // Validate User Here
-  // Then generate JWT Token
+/*app.post("/user/generate-token", (req: Request, res: Response) => {
 
-  let jwtSecretKey = process.env.JWT_SECRET_KEY;
-  console.log(jwtSecretKey)
+  const jwtSecretKey = process.env.JWT_SECRET_KEY ?? "";
   let data = {
-      email: 'res',
-      password: '12',
+      email: req.body.email,
+      password: req.body.password,
   }
 
   const token = jwt.sign(data, jwtSecretKey);
 
   res.send(token);
-});
+});*/
 
 app.listen(port, () => {
   console.log(`[server]: Server is running at http://localhost:${port}`);
