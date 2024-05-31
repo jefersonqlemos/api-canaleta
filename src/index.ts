@@ -1,29 +1,27 @@
-import express, { Express, Request, Response } from "express";
-import { routes } from './routes';
-import dotenv from 'dotenv'; 
+import { AppDataSource } from "./database/data-source";
+import express from "express";
+import dotenv from "dotenv";
+import { Request, Response } from "express";
+import { userRouter } from "./routes/user.routes";
+import "reflect-metadata";
+import { errorHandler } from "./middlewares/error.middleware";
 dotenv.config();
 
-const app: Express = express();
-const port = process.env.PORT || 3000;
+const app = express();
+app.use(express.json());
+app.use(errorHandler);
+const { PORT = 3000 } = process.env;
+app.use("/auth", userRouter);
 
-app.use('/', routes);
-app.get("/healthcheck", (req: Request, res: Response) => {
-  res.send("healthcheck");
+app.get("*", (req: Request, res: Response) => {
+  res.status(505).json({ message: "Bad Request" });
 });
 
-/*app.post("/user/generate-token", (req: Request, res: Response) => {
-
-  const jwtSecretKey = process.env.JWT_SECRET_KEY ?? "";
-  let data = {
-      email: req.body.email,
-      password: req.body.password,
-  }
-
-  const token = jwt.sign(data, jwtSecretKey);
-
-  res.send(token);
-});*/
-
-app.listen(port, () => {
-  console.log(`[server]: Server is running at http://localhost:${port}`);
-});
+AppDataSource.initialize()
+  .then(async () => {
+    app.listen(PORT, () => {
+      console.log("Server is running on http://localhost:" + PORT);
+    });
+    console.log("Data Source has been initialized!");
+  })
+  .catch((error) => console.log(error));

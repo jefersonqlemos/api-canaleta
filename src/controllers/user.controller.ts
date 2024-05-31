@@ -1,24 +1,75 @@
-import { Request, Response } from 'express';
-import { getErrorMessage } from '../utils/errors.util';
-import { AppDataSource } from "./../database/app-data-source"
-//import { User } from "../models/user.model"
-//import * as userServices from '../services/user.service';
+import { Request, Response } from "express";
+import { AppDataSource } from "../database/data-source";
+import { User } from "../entities/user.entity";
+import { encrypt } from "../helpers/encrypt";
+import cache from "memory-cache";
 
-export const loginOne = async (req: Request, res: Response) => {
- try {
-   //const foundUser = await userServices.login(req.body);
-   //AppDataSource.manager.find(User)
-   res.status(200).send('foundUser');
- } catch (error) {
-   return res.status(500).send(getErrorMessage(error));
- }
-};
+export class UserController {
+  static async signup(req: Request, res: Response) {
+    const { name, email, password, role } = req.body;
+    const encryptedPassword = await encrypt.encryptpass(password);
+    const user = new User();
+    user.name = name;
+    user.email = email;
+    user.password = encryptedPassword;
+    user.role = role;
 
-export const registerOne = async (req: Request, res: Response) => {
- try {
-   //await userServices.register(req.body);
-   //res.status(200).send('Inserted successfully');
- } catch (error) {
-   return res.status(500).send(getErrorMessage(error));
- }
-};
+    const userRepository = AppDataSource.getRepository(User);
+    await userRepository.save(user);
+
+    const token = encrypt.generateToken({ id: user.id });
+
+    return res
+      .status(200)
+      .json({ message: "User created successfully", token, user });
+  }
+  static async getUsers(req: Request, res: Response) {
+    const data = cache.get("data");
+    if (data) {
+      console.log("serving from cache");
+      return res.status(200).json({
+        data,
+      });
+    } else {
+      console.log("serving from db");
+      const userRepository = AppDataSource.getRepository(User);
+      const users = await userRepository.find();
+
+      cache.put("data", users, 6000);
+      return res.status(200).json({
+        data: users,
+      });
+    }
+  }
+  static async updateUser(req: Request, res: Response) {
+    const { id } = req.params;
+    const { name, email } = req.body;
+    const userRepository = AppDataSource.getRepository(User);
+    const user = await userRepository.findOne({
+      where: { id },
+    });
+
+    if(user){
+      user.name = name;
+      user.email = email;
+      await userRepository.save(user);
+      res.status(200).json({ message: "udpdate", user });
+    }else{
+      res.status(404).json({ message: "User Not Found" });
+    }
+  }
+
+  static async deleteUser(req: Request, res: Response) {
+    const { id } = req.params;
+    const userRepository = AppDataSource.getRepository(User);
+    const user = await userRepository.findOne({
+      where: { id },
+    });
+    if(user){
+      await userRepository.remove(user);
+      res.status(200).json({ message: "ok" });
+    }else{
+      res.status(404).json({ message: "User Not Found" });
+    }
+  }
+}
